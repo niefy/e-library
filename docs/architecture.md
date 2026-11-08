@@ -8,15 +8,7 @@
 
 ### 1.1 背景
 
-在线图书馆的核心写路径只有两个：**借书**和**还书**。它们看起来简单，真正的难点在于并发正确性：
-
-- 一本热门书只有少量副本，多个用户同时借阅时不能超借；
-- 同一用户不能同时持有同一本书的两个活跃借阅；
-- 归还必须幂等，网络重试和双击不能产生额外状态；
-- 用户只能操作自己的借阅，管理员是唯一例外；
-- 应用要能部署多个实例，正确性不能依赖 JVM 内存锁。
-
-本作业实现一个覆盖上述路径的迷你服务，同时展示清晰的分层、领域模型、安全边界、错误契约、可观测性和测试策略。它**不是**一个功能齐全的图书馆管理系统。
+在线图书馆的核心写路径只有**借书**和**还书**，真正的难点是并发正确性：不能超借；同一用户不能同时持有同一本书的两个活跃借阅；归还必须幂等；用户只能操作自己的借阅（ADMIN 例外）；多实例部署下正确性不能依赖 JVM 内存锁。本作业覆盖这些路径，并展示分层、领域模型、安全边界、错误契约、可观测性和测试策略；它**不是**功能齐全的图书馆管理系统。
 
 ### 1.2 范围内
 
@@ -30,7 +22,7 @@
 
 ### 1.3 范围外
 
-逾期调度、罚金、催还通知、预约/排队、续借、推荐、全文搜索、真实 IdP 登录页、图书管理后台、消息队列、缓存、分布式锁、Kubernetes 清单。原因见 README 的“不在范围内”，演进建议见第 15 节。
+逾期调度、罚金、催还通知、预约/排队、续借、推荐、全文搜索、真实 IdP 登录页、图书管理后台、消息队列、缓存、分布式锁、Kubernetes 清单。原因见 README 的“不在范围内”，演进建议见第 14 节。
 
 ### 1.4 假设与约束
 
@@ -68,7 +60,6 @@
 flowchart LR
     Reader[读者 USER]
     Admin[管理员 ADMIN]
-    Ops[运维/监控]
     IdP[外部 IdP<br/>生产 OIDC]
 
     Reader --> Browser[浏览器 H5]
@@ -79,11 +70,6 @@ flowchart LR
 
     API -->|JDBC| DB[(SQLite 本地<br/>PostgreSQL 生产)]
     API -.->|"issuer/JWKS 校验"| IdP
-    Ops -->|健康探针| Gateway
-    Ops -->|健康探针| API
-
-    Direct[API 调用方/评审者] -->|Bearer JWT| Gateway
-    Direct -->|Swagger/直连| API
 ```
 
 ### 3.2 本地部署拓扑
@@ -96,7 +82,7 @@ flowchart LR
     A -->|"/app/data/library.db"| V[(Docker volume<br/>SQLite WAL)]
 ```
 
-Compose 启动顺序由健康检查控制：`api` 就绪后启动 `gateway`，`gateway` 就绪后启动 `web`。浏览器只访问 8088，因此没有跨域；网关和 API 也暴露到宿主机，便于 curl 与 Swagger 调试。
+Compose 启动顺序由健康检查控制：`api` 就绪后启动 `gateway`，`gateway` 就绪后启动 `web`。浏览器只访问 8088，属于同源请求；但网关仍按 `Origin` 白名单校验转发流量，因此实际访问地址（包括局域网 IP）必须列入 CORS 白名单。网关和 API 也暴露到宿主机，便于 curl 与 Swagger 调试。
 
 ### 3.3 生产部署拓扑
 
@@ -169,20 +155,10 @@ flowchart TB
 
 | 包 | 关键类 | 说明 |
 | --- | --- | --- |
-| `catalog.domain` | `Book`, `BookRepository`, `BookNotFoundException` | 书目聚合、ISBN 规范化、查询端口 |
-| `catalog.application` | `BookQueryService`, `BookView` | 查询单书/搜索，批量聚合活跃借阅数 |
-| `catalog.adapter.in.web` | `BookController`, `BookResponse` | REST 输入输出、参数校验 |
-| `catalog.infrastructure.persistence` | `BookPersistenceAdapter`, `BookSpringDataRepository` | 端口实现、行锁查询、搜索 |
-| `loan.domain` | `Loan`, `LoanStatus`, `LoanRepository`, 领域异常 | 借阅聚合、状态机、端口 |
-| `loan.application` | `LoanService`, `LoanQueryService`, `LoanView` | 借阅/归还事务、所有权检查、查询 |
-| `loan.adapter.in.web` | `LoanController`, `BorrowBookRequest`, `LoanResponse` | REST 契约 |
-| `loan.infrastructure.persistence` | `LoanPersistenceAdapter`, `LoanSpringDataRepository` | 活跃计数、分页、约束异常翻译 |
-| `identity` | `Actor`, `Role` | 调用者身份模型 |
-| `identity.security` | `SecurityConfig`, JWT 配置、`@CurrentUser` | 资源服务器、角色映射、CORS |
-| `identity.adapter.in.web` | `DevTokenController` | 仅 dev profile 的本地令牌签发 |
-| `shared.api` | `GlobalExceptionHandler`, `ProblemDetailsFactory`, `TraceIdFilter` | 统一错误与关联 ID |
-| `shared.paging` | `PageQuery`, `PageResult`, `PageResponse` | 有上限的分页契约 |
-| `shared.persistence` | UUID/Instant converter | SQLite/PostgreSQL 可移植映射 |
+| `catalog` | `Book`, `BookRepository`, `BookQueryService`, `BookController`, `BookPersistenceAdapter` | 书目聚合、ISBN 规范化、搜索与可借数量查询 |
+| `loan` | `Loan`, `LoanStatus`, `LoanService`, `LoanQueryService`, `LoanController`, `LoanPersistenceAdapter` | 借阅聚合、状态机、借还事务、所有权检查 |
+| `identity` | `Actor`, `Role`, `SecurityConfig`, `DevTokenController` | 调用者身份、资源服务器、角色映射、仅 dev 的令牌签发 |
+| `shared` | `GlobalExceptionHandler`, `ProblemDetailsFactory`, `TraceIdFilter`, `PageQuery`, `PageResponse`, 类型 converter | 统一错误、traceId、分页与跨数据库类型映射 |
 
 ### 4.4 为什么是模块化单体
 
@@ -214,12 +190,6 @@ classDiagram
         -Instant createdAt
         -long version
         +create(isbn, title, author, totalCopies, createdAt)$ Book
-        +getId() UUID
-        +getIsbn() String
-        +getTitle() String
-        +getAuthor() String
-        +getTotalCopies() int
-        +getCreatedAt() Instant
     }
 
     class Loan {
@@ -329,25 +299,11 @@ stateDiagram-v2
 - 重复归还同一个借阅返回 200，不创建新记录，`returnedAt` 不变。
 - 借阅创建返回的 `bookTitle` 来自同一次事务读取的书目。
 
-### 6.3 请求/响应示例
+### 6.3 借书请求/响应
 
-借书请求：
+`BorrowBookRequest` 只有 `bookId` 字段；请求体即使包含 `userId` 也会被忽略，服务端始终使用 `@CurrentUser Actor`。成功返回 `201`、`Location: /api/v1/loans/{id}` 和借阅视图：
 
-```http
-POST /api/v1/loans HTTP/1.1
-Authorization: Bearer eyJ...
-Content-Type: application/json
-
-{"bookId":"11111111-1111-1111-1111-111111111111"}
-```
-
-响应：
-
-```http
-HTTP/1.1 201 Created
-Location: /api/v1/loans/9f1c...
-Content-Type: application/json
-
+```json
 {
   "id": "9f1c...",
   "bookId": "11111111-1111-1111-1111-111111111111",
@@ -357,8 +313,6 @@ Content-Type: application/json
   "dueAt": "2026-11-22T06:45:00Z"
 }
 ```
-
-`BorrowBookRequest` 只有 `bookId` 字段。请求体中即使包含 `userId` 也会被忽略，服务端始终使用 `@CurrentUser Actor`。
 
 ### 6.4 错误模型
 
@@ -486,28 +440,29 @@ sequenceDiagram
     participant C as Client
     participant G as Gateway
     participant A as API
-    participant S as Security
     participant DB as Database
 
     C->>G: POST /api/v1/loans<br/>Bearer JWT + {"bookId":...}
     G->>G: 复用/生成 X-Trace-Id
     G->>A: 转发请求 + X-Trace-Id
-    A->>S: 校验签名、issuer、exp、sub
-    S-->>A: JwtAuthenticationToken → Actor(userId, admin)
+    A->>A: 校验 JWT → Actor(userId, admin)
     A->>DB: BEGIN
     A->>DB: SELECT book ... FOR UPDATE
     alt 书不存在
-        A-->>C: 404 BOOK_NOT_FOUND
+        A-->>G: 404 BOOK_NOT_FOUND
     else 该用户已有 ACTIVE 借阅
-        A-->>C: 409 LOAN_ALREADY_ACTIVE
+        A-->>G: 409 LOAN_ALREADY_ACTIVE
     else 活跃借阅数 >= totalCopies
-        A-->>C: 409 BOOK_NOT_AVAILABLE
+        A-->>G: 409 BOOK_NOT_AVAILABLE
     else 可借
         A->>DB: INSERT loan(status=ACTIVE)<br/>触发器再校验容量
         A->>DB: COMMIT
-        A-->>C: 201 + Location + LoanResponse
+        A-->>G: 201 + Location + LoanResponse
     end
+    G-->>C: 转发响应 + X-Trace-Id
 ```
+
+认证在 API 进程内由 Spring Security 资源服务器过滤器完成，没有独立的 Security 服务，也没有额外网络跳转。
 
 关键点：
 
@@ -522,25 +477,30 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant C as Client
+    participant G as Gateway
     participant A as API
     participant DB as Database
 
-    C->>A: POST /api/v1/loans/{id}/return
+    C->>G: POST /api/v1/loans/{id}/return<br/>Bearer JWT
+    G->>G: 复用/生成 X-Trace-Id
+    G->>A: 转发请求 + X-Trace-Id
+    A->>A: 校验 JWT → Actor
     A->>DB: BEGIN
     A->>DB: SELECT loan ... FOR UPDATE
     alt 借阅不存在
-        A-->>C: 404 LOAN_NOT_FOUND
+        A-->>G: 404 LOAN_NOT_FOUND
     else 非本人且非 ADMIN
-        A-->>C: 403 ACCESS_DENIED
+        A-->>G: 403 ACCESS_DENIED
     else loan.status = RETURNED
         A->>A: returnBook 返回 false（无状态变化）
-        A-->>C: 200 当前视图（returnedAt 不变）
+        A-->>G: 200 当前视图（returnedAt 不变）
     else loan.status = ACTIVE
         A->>A: status=RETURNED, returnedAt=now
         A->>DB: UPDATE loan（@Version 检查）
         A->>DB: COMMIT
-        A-->>C: 200 LoanResponse
+        A-->>G: 200 LoanResponse
     end
+    G-->>C: 转发响应 + X-Trace-Id
 ```
 
 应用层没有显式调用 `save`：`findByIdForUpdate` 返回的是受管实体，事务提交时 Hibernate 脏检查会写入更新。`@Version` 防止在锁不可用的数据库上丢失更新；触发器/状态机保证语义正确。
@@ -559,14 +519,12 @@ sequenceDiagram
 
 ### 9.2 PostgreSQL 生产方案
 
-1. `findByIdForUpdate` 生成 `SELECT ... FOR UPDATE`，锁住目标 `book` 行。
-2. 同一本书的借书事务串行化；不同书互不阻塞。
-3. 在持锁事务内先检查该用户已有活跃借阅，再执行 `count(ACTIVE)`，最后插入 `loan`。重复借阅优先返回更准确的 `LOAN_ALREADY_ACTIVE`，即使最后一本刚好被本次请求占用。
-4. 部分唯一索引兜底“同用户同书一个活跃借阅”。
-5. BEFORE INSERT/UPDATE 触发器对单条写入做兜底检查（例如数据修复、绕过应用层的脚本）；在 READ COMMITTED 下它本身不是并发序列化机制，**任何新增写路径仍必须先锁 Book 行**，否则两个并发事务可能都在对方提交前读到旧计数。
-6. `@Version` 检测 Book/Loan 的并发修改；冲突映射为 409 `CONCURRENT_MODIFICATION`。
+1. `findByIdForUpdate` 生成 `SELECT ... FOR UPDATE`，同一本书的借书事务串行化，不同书互不阻塞。
+2. 在持锁事务内先检查该用户已有活跃借阅，再执行 `count(ACTIVE)`，最后插入 `loan`；重复借阅优先返回更准确的 `LOAN_ALREADY_ACTIVE`。
+3. 部分唯一索引兜底“同用户同书一个活跃借阅”；BEFORE INSERT/UPDATE 触发器是单条写入的最后防线。在 READ COMMITTED 下触发器本身不是并发序列化机制，**任何新增写路径仍必须先锁 Book 行**。
+4. `@Version` 检测 Book/Loan 的并发修改，冲突映射为 409 `CONCURRENT_MODIFICATION`。
 
-隔离级别使用数据库默认的 READ COMMITTED。因为所有借书方都先竞争同一行锁，计数语句看到的是已提交状态，足以保证正确性；不需要 SERIALIZABLE 带来的重试成本。
+隔离级别使用默认的 READ COMMITTED：所有借书方先竞争同一行锁，计数语句看到的是已提交状态；不需要 SERIALIZABLE 带来的重试成本。
 
 ### 9.3 SQLite 本地方案
 
@@ -639,7 +597,7 @@ sequenceDiagram
 - 生产必须在负载均衡/网关终止 TLS；应用信任转发头以生成正确的外部 URL。
 - CORS 只允许配置中的白名单 origin，方法限定 GET/POST/OPTIONS，头限定 Authorization/Content-Type/Accept/X-Trace-Id；暴露 `Location`/`X-Trace-Id`。
 - 网关使用同一白名单回答 OPTIONS 预检（否则 Spring Cloud Gateway 的默认空 CORS 配置会在转发前返回 403），实际响应与 API 的 CORS 头通过 `DedupeResponseHeader` 去重；直接访问 API 时仍由资源服务器执行同一套校验。
-- 本地 H5 通过 nginx 同源代理调用 API，因此浏览器侧不依赖 CORS；跨域浏览器客户端应走网关 8081。
+- 本地 H5 通过 nginx 同源代理调用 API，浏览器侧没有跨域预检；但网关仍按 `Origin` 白名单校验转发流量，因此 8088 的实际访问地址也必须列入白名单。跨域浏览器客户端应走网关 8081。
 - nginx 返回 CSP、`X-Content-Type-Options`、`X-Frame-Options: DENY`、`Referrer-Policy`、`Permissions-Policy`；页面不加载第三方脚本，不使用内联脚本。
 - 无 Cookie 会话，CSRF 关闭是安全的；Bearer token 由前端保存在 sessionStorage（仅本地演示）。
 - 前端所有动态文本使用 `textContent`，不拼接 HTML，降低 XSS 风险。
@@ -700,9 +658,8 @@ sequenceDiagram
 
 ### 11.6 交付物
 
-- 三个多阶段/精简 Dockerfile；API 和网关运行阶段仅含 JRE，非 root。
-- `docker-compose.yml` 提供健康检查、依赖顺序、SQLite 持久卷。
-- 生产拓扑为 LB + 多实例网关/API + 托管 PG；不要求完整 Kubernetes 清单。
+- 三个多阶段/精简 Dockerfile，API 和网关运行阶段仅含 JRE 且以非 root 运行；Compose 提供健康检查、依赖顺序和 SQLite 持久卷。
+- 生产拓扑为 LB + 多实例网关/API + 托管 PG，不要求完整 Kubernetes 清单。
 
 ## 12. 可观测性
 
@@ -712,18 +669,12 @@ sequenceDiagram
 - API 的 `TraceIdFilter` 再次校验并放入 MDC；日志 pattern：`%5P [traceId:%X{traceId:-}]`。
 - ProblemDetail 的 `traceId` 与响应头一致，用户报错时可直接定位日志。
 
-### 12.2 日志
+### 12.2 日志与指标
 
-- 借阅成功：`Borrowed loanId=… bookId=… userId=… dueAt=…`。
-- 归还已在别处调试级别记录“已归还，返回幂等响应”。
-- 未映射的数据库冲突记录 WARN；未预期异常记录 ERROR + 堆栈 + traceId。
-- 不记录 Authorization、token、密码。
-
-### 12.3 指标与追踪
-
-- 当前暴露 Actuator `health`/`info`；Spring Boot 自动配置的 Micrometer 指标可通过配置追加暴露（生产应加认证或仅在管理网络开放）。
-- 未内置 OpenTelemetry collector、Prometheus 或日志后端，避免本地环境过度工程；网关已具备贯穿请求的 traceId，接入标准追踪时可直接复用。
-- 建议生产监控：请求量/延迟/错误率、借阅成功/冲突计数、数据库连接池、锁等待、readiness 状态。
+- 借阅成功记录 `Borrowed loanId=… bookId=… userId=… dueAt=…`；重复归还为调试日志；未映射冲突记录 WARN；未预期异常记录 ERROR + 堆栈 + traceId。
+- 不记录 Authorization、token 或密码。
+- 当前暴露 Actuator `health`/`info`；Micrometer 指标可按需追加暴露，生产应在管理网络或认证后开放。
+- 未内置 Prometheus/OpenTelemetry 后端；traceId 可直接接入标准追踪。建议监控请求量/延迟/错误率、借阅成功/冲突、连接池、锁等待与 readiness。
 
 ## 13. 测试策略
 
@@ -782,86 +733,7 @@ Surefire 运行 `*Test`，Failsafe 只在 `verify` 阶段运行 `*IT`。Testcont
 - OIDC issuer 模式的集成测试（需要模拟 JWKS 服务器）。
 - 负载/容量测试、数据库故障切换演练。
 
-## 14. 架构决策记录（ADR）
-
-### ADR-001：采用模块化单体，而非微服务
-
-- **状态**：已接受。
-- **背景**：业务只有书目和借阅两个上下文，团队与部署规模不需要独立服务。
-- **决策**：单 Maven reactor，三个模块；后端一个部署单元，按包划分限界上下文和端口/适配器。
-- **备选**：catalog/loan 拆成两个服务，引入服务发现、配置中心、分布式事务/事件。
-- **后果**：部署和调试简单，跨上下文调用是本地方法；未来拆分需要先稳定模块边界和契约。当前通过包依赖规则避免意大利面式单体。
-
-### ADR-002：充血领域模型 + Repository 端口 + 最小 JPA 注解
-
-- **状态**：已接受。
-- **背景**：要求领域逻辑可单测、Controller 不碰 Repository、Entity 不作为 DTO；同时不希望维护两套模型和大量映射代码。
-- **决策**：`Book`/`Loan` 是充血聚合，工厂 + 业务方法、无 setter；Repository 接口在 domain，实现在 infrastructure；application 依赖端口。领域类保留最小 JPA 元数据（`@Entity`、`@Id`、`@Version`、列映射），但不调用 EntityManager/JPA API。
-- **备选**：严格的独立 Data Mapper（domain 对象与 persistence entity 完全分离）；或富领域 + 手写 SQL。
-- **后果**：领域单测无需数据库，持久化可替换；代价是领域对象仍带注解，不是“零框架依赖”的纯净模型。在当前规模，这是可维护性与纯粹性之间的务实折中；若领域复杂化，可拆出 persistence model 与 mapper。
-
-### ADR-003：借阅容量使用数据库事务 + Book 行悲观锁
-
-- **状态**：已接受。
-- **背景**：核心不变量是“活跃借阅数 ≤ 总副本数”，必须在并发多实例下成立。
-- **决策**：借书事务先 `SELECT book ... FOR UPDATE`，再查重、计数、插入。容量较小时锁粒度精确到单本书，事务短。数据库触发器与部分唯一索引兜底。
-- **备选 A：纯乐观锁 + 重试**。读取 Book/计数后插入，提交时用 `@Version` 冲突重试。
-  - 优点：无阻塞，读多写少时吞吐好。
-  - 缺点：热门书高并发下大量事务失败重试，重试逻辑复杂；计数是派生值，不是 Book 行本身的字段，单靠 Book 版本号无法阻止两个事务同时插入；仍需唯一索引/触发器兜底。
-- **备选 B：应用层 `synchronized`/本地锁**。多实例失效，明确禁止。
-- **备选 C：Redis 分布式锁**。引入额外组件、TTL 和锁续期故障模式；数据库事务已能提供正确临界区，违反“不过度工程”。
-- **后果**：同一本书的借阅串行化，最坏吞吐由单行锁决定；换来确定性的正确性和简单实现。`@Version` 仍保留用于非借阅更新和 SQLite 等锁能力受限的场景。
-- **复审条件**：若热门书借阅 QPS 成为瓶颈，可评估“预约队列 + 异步分配”或按副本分片的库存模型，而不是简单去掉锁。
-
-### ADR-004：本地 SQLite，测试/生产 PostgreSQL
-
-- **状态**：已接受。
-- **背景**：作业要求 5 分钟本地启动，且要求多实例水平扩展和真实并发正确性。
-- **决策**：本地默认 SQLite（WAL、busy_timeout、IMMEDIATE 写事务、触发器兜底）；集成测试和生产使用 PostgreSQL（行锁、部分索引、plpgsql 触发器）。
-- **备选**：本地也用 PG（需要 Docker，启动更重）；或生产也用 SQLite（无法多实例高可用）。
-- **后果**：本地零依赖，但两种数据库行为不完全一致，必须靠 Testcontainers 验证 PG 路径，并用独立的 SQLite 并发测试守住本地路径。SQLite 仅限单实例演示，文档明确标注。迁移按 vendor 分离，公共 schema 保持可移植。
-
-### ADR-005：开发 HMAC 令牌，生产 OIDC issuer
-
-- **状态**：已接受。
-- **背景**：本地没有 IdP，但仍需验证完整的 Bearer + 角色 + 所有权链路。
-- **决策**：`dev` profile + `hmac` 模式提供受限的开发令牌端点；生产 `issuer` 模式只做 JWT 校验，从 OIDC discovery/JWKS 获取公钥，不签发令牌。
-- **备选**：本地也搭 Keycloak（增加 5 分钟启动负担）；或使用固定测试 token（无法验证过期/角色）。
-- **后果**：本地体验好，且安全配置与生产同构；dev 端点必须确保不随生产 profile 启用。生产还需补充 audience 校验和限流。
-
-### ADR-006：数据库约束作为最后防线
-
-- **状态**：已接受。
-- **背景**：应用层检查可能因并发、未来新入口或代码回归而失效。
-- **决策**：部分唯一索引保证同用户同书一个活跃借阅；CHECK 约束保证状态/时间一致；ISBN/totalCopies 约束保证书目合法；容量触发器作为单语句兜底。应用层先检查以返回准确错误码，数据库唯一/CHECK 约束负责最终拒绝。PostgreSQL 上“活跃数 ≤ 总副本数”的并发正确性由 Book 行锁提供，触发器不能替代锁协议。
-- **备选**：只靠应用层检查；或只用数据库约束、不给出友好错误。
-- **后果**：唯一性和状态一致性不完全依赖某条代码路径；容量并发仍要求所有写入口遵守“先锁 Book”的规则。适配器需要把底层约束异常翻译为领域异常。触发器在每次借阅插入时做一次计数，依赖 `(book_id,status)` 索引；高写入量时可改为维护计数字段或使用更细粒度的约束策略。
-
-### ADR-007：RFC 7807 + 稳定错误码 + traceId
-
-- **状态**：已接受。
-- **背景**：客户端需要可靠区分“无库存”“重复借阅”“无权限”“参数错误”，且排障需要关联日志。
-- **决策**：统一 `application/problem+json`，`code` 为稳定枚举，`traceId` 同时出现在 body 和 `X-Trace-Id`；5xx 不暴露内部细节。
-- **备选**：自定义错误 JSON；直接返回异常消息（会泄露实现细节）。
-- **后果**：客户端契约稳定、可观测性好；需要维护错误码枚举与映射测试。新增错误必须同时更新文档和测试。
-
-### ADR-008：网关只做边缘职责，不承载业务
-
-- **状态**：已接受。
-- **背景**：需要统一入口、traceId 和未来的 TLS/限流位置，但当前只有一个后端。
-- **决策**：Spring Cloud Gateway 单路由 `/api/v1/**` → API，注入/复用 traceId；不做认证解析、不做聚合、不加分布式限流。
-- **备选**：不用网关，浏览器直连 API；或引入服务发现/多路由聚合。
-- **后果**：多一个可部署组件和一跳网络，但获得统一入口与关联 ID。没有引入服务发现和配置中心；`LIBRARY_API_URI` 由环境变量注入。
-
-### ADR-009：不引入消息队列、缓存与分布式锁
-
-- **状态**：已接受。
-- **背景**：当前没有异步业务流程；读路径是简单索引查询；并发正确性由数据库事务保证。
-- **决策**：保持同步请求/响应，使用数据库作为唯一协调点；不引入 Kafka、Redis、分布式锁。
-- **备选**：为“未来可能”的逾期通知预埋 Kafka；用 Redis 缓存书目。
-- **后果**：组件少、故障面小、5 分钟可启动。未来出现逾期批处理/通知时，可引入 outbox + 定时任务或消息队列；出现明确读热点时再评估缓存，并用指标证明必要性。
-
-## 15. 风险与演进
+## 14. 风险与演进
 
 | 风险 | 影响 | 当前缓解 | 演进方向 |
 | --- | --- | --- | --- |
