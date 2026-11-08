@@ -1,6 +1,6 @@
 # E-Library Service
 
-一个按生产标准设计的迷你数字图书馆后端：读者可以浏览书目、借书、还书并查看自己的借阅记录。
+一个迷你数字图书馆服务：读者可以浏览书目、借书、还书并查看自己的借阅记录。
 
 项目故意做成**模块化单体**，而不是微服务：业务规模只需要一个后端服务，但代码仍按限界上下文和端口/适配器分层，保持可替换、可测试、可演进。完整设计见 [docs/architecture.md](docs/architecture.md)。
 
@@ -19,7 +19,7 @@ docs/             架构文档与 ADR
 docker-compose.yml
 ```
 
-## 5 分钟运行
+## 快速开始
 
 前置条件：Docker 及 Docker Compose。首次运行需要下载镜像和 Maven 依赖，视网络通常 5–10 分钟；之后启动约 10 秒。
 
@@ -28,17 +28,7 @@ docker compose up --build -d
 docker compose ps          # 等待三个服务都变为 healthy
 ```
 
-打开 <http://localhost:8088>，使用页面上的快捷登录：
-
-| 用户 | 角色 | 用途 |
-| --- | --- | --- |
-| `alice` | USER | 借阅、归还、查看自己的借阅 |
-| `bob` | USER | 验证不同用户的数据隔离 |
-| `admin` | ADMIN | 可查看/归还任意用户的借阅 |
-
-本地 Compose 使用 `dev` profile 和一个**仅供开发**的 HMAC 令牌端点，浏览器登录不需要外部 IdP。生产使用 OIDC，见下文。如果通过局域网地址（如 `http://192.168.68.108:8088`）访问，该完整 origin 必须在 `ELIBRARY_CORS_ALLOWED_ORIGINS` 中；仓库默认已包含这一地址。
-
-其他入口：
+地址入口：
 
 | 地址 | 说明 |
 | --- | --- |
@@ -197,7 +187,7 @@ ELIBRARY_CORS_ALLOWED_ORIGINS=https://library.example.com
 - 同一本书可被不同用户同时借阅，只要活跃借阅数小于总副本数；同一用户同一本书最多一个活跃借阅。
 - 所有书目查询也需要登录，不做匿名访问。
 
-## 不在范围内
+## 未实现功能
 
 | 未实现 | 原因 |
 | --- | --- |
