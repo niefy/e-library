@@ -7,7 +7,7 @@
 ## 技术栈
 
 - Java 21 · Spring Boot 3.3 · Spring Security OAuth2 Resource Server
-- SQLite（本地演示）· PostgreSQL（集成测试/生产）· Flyway
+- PostgreSQL 16（Compose 开发/集成测试/生产）· Flyway
 - `library-common` 认证/缓存/分页/错误契约共享模块 · nginx 托管的 H5 客户端
 - Spring Cache + Caffeine（注解式缓存）· JUnit 5 · AssertJ · Testcontainers
 
@@ -37,8 +37,9 @@ docker compose ps          # 等待 api 和 web 都变为 healthy
 | <http://localhost:8088> | H5 客户端（nginx 同源代理 `/api`） |
 | <http://localhost:8080> | API；Swagger UI：`/swagger-ui.html` |
 | <http://localhost:8080/actuator/health/readiness> | 就绪探针 |
+| `localhost:5432` 或 `内网IP:5432` | PostgreSQL 16（用户/库：`elibrary`，密码见 `POSTGRES_PASSWORD`） |
 
-停止并清空 SQLite 数据：
+停止并清空 PostgreSQL 数据：
 
 ```bash
 docker compose down -v
@@ -67,11 +68,11 @@ docker compose down -v
 # 单元测试：11 个，无需 Docker
 ./mvnw test
 
-# 全部测试：11 个单元测试 + 15 个集成测试（需要 Docker）
+# 全部测试：11 个单元测试 + 12 个集成测试（需要 Docker）
 ./mvnw verify
 ```
 
-集成测试使用真实 PostgreSQL 16（Testcontainers）和真实 SQLite 文件，覆盖借还生命周期、幂等归还、并发不超借、授权、错误契约、CORS 与缓存失效。详见 [测试策略](docs/testing.md)。
+集成测试使用真实 PostgreSQL 16（Testcontainers），覆盖借还生命周期、幂等归还、并发不超借、授权、错误契约、CORS 与缓存失效。详见 [测试策略](docs/testing.md)。
 
 ## 文档
 

@@ -1,0 +1,5 @@
+spring:
+  flyway:
+    # Seed data is for the local Compose database only. Test and production
+    # profiles intentionally omit this location.
+    locations: "classpath:db/migration/common,classpath:db/migration/postgresql,classpath:db/seed"

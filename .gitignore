@@ -7,13 +7,6 @@ target/
 *.jar
 !.mvn/wrapper/maven-wrapper.jar
 
-# Local runtime data (SQLite)
-data/
-*.db
-*.db-*
-*.sqlite
-*.sqlite-*
-
 # Environment and secrets
 .env
 !.env.example

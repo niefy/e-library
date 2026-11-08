@@ -5,8 +5,8 @@ import jakarta.persistence.Converter;
 import java.util.UUID;
 
 /**
- * UUIDs are stored as canonical VARCHAR(36) values. This keeps the same schema valid on SQLite
- * (local) and PostgreSQL (production/tests) without dialect-specific native UUID handling.
+ * UUIDs are stored as canonical VARCHAR(36) values, keeping the JPA mapping independent of
+ * dialect-specific native UUID handling.
  */
 @Converter(autoApply = true)
 public class UuidVarcharConverter implements AttributeConverter<UUID, String> {

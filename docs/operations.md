@@ -4,7 +4,7 @@
 
 ### 无状态与扩容
 
-- API 不保存 HTTP Session、不写本地磁盘（除 SQLite 本地模式的数据库文件）、不使用内存锁。
+- API 不保存 HTTP Session、不写本地磁盘、不使用内存锁。
 - 多实例部署时，任何实例都可处理任何已认证请求；数据库是唯一协调点。
 - 扩容指标建议：CPU、请求延迟、数据库连接池饱和度；连接池上限 10（本地）/20（测试），生产按 PG 连接上限与实例数规划。
 
@@ -28,15 +28,17 @@
 ### 配置外部化
 
 - 所有环境差异通过环境变量/profile 注入：数据库 URL、用户名、密码、JWT 模式、issuer、CORS、端口。
-- `application-prod.yml` 使用 PostgreSQL 和 OIDC issuer；`application-test.yml` 使用 Testcontainers PG。
+- `application-dev.yml` 使用 Compose/本机 PostgreSQL 并加载种子数据；`application-test.yml` 使用 Testcontainers PG；`application-prod.yml` 使用托管 PostgreSQL 和 OIDC issuer。
 - 不引入配置中心：单体服务的配置项较少，环境变量 + 密钥管理足够；未来多环境复杂化再评估。
 
 ### 本地开发（不用 Compose）
 
-需要 JDK 21、Maven（或使用仓库自带的 `./mvnw`）。
+需要 JDK 21、Maven（或使用仓库自带的 `./mvnw`），以及运行中的 PostgreSQL。可以先只启动数据库容器：
 
 ```bash
-# dev profile 会启用开发令牌端点并写入 ./data/library.db
+docker compose up -d postgres
+
+# dev profile 会启用开发令牌端点、加载种子数据，并连接 localhost:5432
 ./mvnw -pl library-api -am spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
@@ -51,7 +53,7 @@ API 在 <http://localhost:8080>，Swagger UI 在 <http://localhost:8080/swagger-
 
 ### 交付物
 
-- API 使用多阶段 Dockerfile，运行阶段仅含 JRE 且以非 root 运行；web 使用 nginx 静态镜像；Compose 提供健康检查、依赖顺序和 SQLite 持久卷。
+- API 使用多阶段 Dockerfile，运行阶段仅含 JRE 且以非 root 运行；web 使用 nginx 静态镜像；Compose 提供 PostgreSQL 16、健康检查、依赖顺序和数据库持久卷。
 - 生产拓扑为 LB + 多实例 API + 托管 PG，不要求完整 Kubernetes 清单。
 
 ## 可观测性

@@ -5,10 +5,9 @@ import jakarta.persistence.Converter;
 import java.time.Instant;
 
 /**
- * Instants are persisted as epoch milliseconds. SQLite has no native timestamp type and stores
- * timestamps as text/numeric depending on the driver; a BIGINT representation is unambiguous,
- * sortable and identical on PostgreSQL. Domain code truncates to milliseconds so a DB round trip
- * does not change values.
+ * Instants are persisted as epoch milliseconds. A BIGINT representation is unambiguous and
+ * sortable, and keeps the mapping independent of database timestamp types. Domain code truncates
+ * to milliseconds so a DB round trip does not change values.
  */
 @Converter(autoApply = true)
 public class InstantEpochMillisConverter implements AttributeConverter<Instant, Long> {

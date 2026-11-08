@@ -10,7 +10,6 @@
 | 领域单测 | `BookTest` | 4 | ISBN 规范化、非法输入、ISBN-10 X、UUID 生成 |
 | 共享单测 | `PageQueryTest` | 2 | 分页上限、总页数计算 |
 | 集成测试 | `LibraryApiIT` | 12 | 完整 HTTP + 真实 PostgreSQL + Flyway，含缓存失效 |
-| 集成测试 | `SqliteConcurrencyIT` | 3 | 本地 SQLite 事务模式与并发容量/唯一性 |
 
 `LibraryApiIT` 覆盖：
 
@@ -27,16 +26,10 @@
 11. CORS 白名单覆盖 localhost、127.0.0.1 与局域网 IP，预检返回 200 和对应 `Access-Control-Allow-Origin`。
 12. 书目详情和搜索结果先入缓存；借书/归还提交后缓存被失效，`availableCopies` 立即反映最新状态。
 
-`SqliteConcurrencyIT` 使用真实的文件型 SQLite，而不是 mock：
-
-1. 断言运行时 JDBC URL 含 `transaction_mode=IMMEDIATE`。
-2. 12 个不同用户并发抢 1 本副本：恰好 1 个 201、11 个 409 `BOOK_NOT_AVAILABLE`，没有 5xx。
-3. 12 次同一用户并发借同一本书：恰好 1 个 201、11 个 409 `LOAN_ALREADY_ACTIVE`，活跃借阅仍为 1。
-
 ### 为什么用 Testcontainers PostgreSQL
 
-- 本地运行用 SQLite，但 SQLite 不支持 `SELECT ... FOR UPDATE`，无法验证生产行锁语义；生产并发正确性必须由 PostgreSQL 容器验证。
-- 集成测试启动真实 `postgres:16-alpine`，执行与生产相同的 Flyway common+postgresql 迁移（含触发器），确保约束、锁和类型映射真实有效。
+- 本地开发、测试和生产都使用 PostgreSQL，避免本地与生产数据库行为不一致。
+- 集成测试启动真实 `postgres:16-alpine`，执行与开发/生产相同的 Flyway common+postgresql 迁移（含触发器），确保约束、锁和类型映射真实有效。
 - 容器在整个测试 JVM 内复用；每个测试前 `TRUNCATE TABLE loan, book CASCADE` 并清空 Caffeine 缓存，保证可重复、无顺序依赖。
 - 不 mock Repository、事务、安全过滤器或数据库；只有时间由真实系统 UTC Clock 驱动（领域单测可传固定 Instant）。
 
@@ -44,7 +37,7 @@
 
 ```bash
 ./mvnw test       # 11 个单元测试，无需 Docker
-./mvnw verify     # 追加 15 个集成测试（12 PostgreSQL + 3 SQLite），共 26 个，需要 Docker
+./mvnw verify     # 追加 12 个集成测试，共 23 个，需要 Docker
 ```
 
 Surefire 运行 `*Test`，Failsafe 只在 `verify` 阶段运行 `*IT`。Testcontainers 需要本机 Docker daemon 可访问。

@@ -1,9 +1,27 @@
 name: e-library
 
-# Local, single-host topology. Production runs the same stateless images behind
-# a load balancer with a managed PostgreSQL cluster; see docs/README.md.
+# Local, single-host topology. Development, integration tests and production all
+# use PostgreSQL; production replaces the local container with a managed cluster.
+# See docs/README.md for the design documentation.
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: elibrary
+      POSTGRES_USER: elibrary
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-elibrary-dev-password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_BIND_ADDRESS:-0.0.0.0}:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elibrary -d elibrary"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   api:
     build:
       context: .
@@ -11,14 +29,17 @@ services:
     image: e-library-service:local
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      ELIBRARY_DB_PATH: /app/data/library.db
+      DATABASE_URL: jdbc:postgresql://postgres:5432/elibrary
+      DATABASE_USERNAME: elibrary
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-elibrary-dev-password}
       ELIBRARY_JWT_SECRET: ${ELIBRARY_JWT_SECRET:-local-dev-hmac-secret-please-change-me-32b}
       ELIBRARY_JWT_ISSUER: ${ELIBRARY_JWT_ISSUER:-elibrary-compose}
       ELIBRARY_CORS_ALLOWED_ORIGINS: ${ELIBRARY_CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://127.0.0.1:8088,http://192.168.68.108:8088}
       ELIBRARY_CACHE_TTL: ${ELIBRARY_CACHE_TTL:-30s}
       ELIBRARY_CACHE_MAX_SIZE: ${ELIBRARY_CACHE_MAX_SIZE:-10000}
-    volumes:
-      - library-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     healthcheck:
@@ -47,4 +68,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  library-data:
+  postgres-data:

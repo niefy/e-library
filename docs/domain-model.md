@@ -80,7 +80,7 @@ stateDiagram-v2
 
 | 编号 | 不变量 | 领域/应用层 | 数据库层 |
 | --- | --- | --- | --- |
-| I1 | 活跃借阅数 ≤ `Book.totalCopies` | 借书事务锁 Book 行后计数并判断 | `trg_loan_capacity_guard` 触发器兜底（PG 并发序列化仍依赖行锁；SQLite 为单写者） |
+| I1 | 活跃借阅数 ≤ `Book.totalCopies` | 借书事务锁 Book 行后计数并判断 | `trg_loan_capacity_guard` 触发器兜底；并发序列化依赖行锁 |
 | I2 | 同一用户同一书最多一个 `ACTIVE` 借阅 | 借书前查询已有活跃借阅 | 部分唯一索引 `uq_loan_active_user_book (user_id, book_id) WHERE status='ACTIVE'` |
 | I3 | 只有 `ACTIVE` 可归还；重复归还幂等 | `Loan.returnBook` 内状态判断 | `ck_loan_status`、`ck_loan_returned_at` |
 | I4 | `dueAt = borrowedAt + 14 天`，UTC，注入 Clock | `Loan.borrow` 计算并截断毫秒 | `ck_loan_due_date` 校验精确差值 |

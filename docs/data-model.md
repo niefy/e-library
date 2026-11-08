@@ -33,7 +33,7 @@ erDiagram
 `book`：
 
 - 主键 `id`；`isbn` 唯一；`total_copies > 0`；`version` 由 Hibernate 乐观锁维护。
-- `created_at` 存 epoch 毫秒，跨 SQLite/PostgreSQL 行为一致。
+- `created_at` 存 epoch 毫秒，排序与比较语义明确。
 
 `loan`：
 
@@ -62,18 +62,17 @@ erDiagram
 
 ```
 db/migration/common/V1__create_schema.sql       表、约束、索引
-db/migration/sqlite/V2__loan_capacity_guard.sql SQLite 触发器
 db/migration/postgresql/V2__loan_capacity_guard.sql PG 触发器函数
-db/seed/V3__seed_books.sql                      仅本地 profile 的 8 本种子书
+db/seed/V3__seed_books.sql                      仅 dev profile 的 8 本种子书
 ```
 
-- Flyway locations：`common` + `{vendor}`；默认本地配置额外包含 `seed`；测试/生产不加载 seed。
+- Flyway locations：`common` + `postgresql`；`dev` profile 额外包含 `seed`；测试/生产不加载 seed。
 - Hibernate 使用 `ddl-auto: validate`，不会悄悄改表。
 - 迁移只前进，不在运行时自动改结构；生产发布应先在预发验证。
 - Flyway 在 PostgreSQL 上使用 schema history 锁，多个实例同时启动时会串行执行迁移。
 
-### 类型可移植性
+### 类型映射
 
-- UUID 统一存为 `VARCHAR(36)`，避免 SQLite 无原生 UUID 类型；主键字段使用 `@JdbcTypeCode(SqlTypes.VARCHAR)`，非主键 UUID 使用 `AttributeConverter`。
-- `Instant` 通过 `AttributeConverter` 存为 epoch 毫秒 `BIGINT`，避免 SQLite 文本日期格式与 PG `timestamptz` 的差异。
+- UUID 统一存为 `VARCHAR(36)`；主键字段使用 `@JdbcTypeCode(SqlTypes.VARCHAR)`，非主键 UUID 使用 `AttributeConverter`，映射不依赖数据库原生 UUID 类型。
+- `Instant` 通过 `AttributeConverter` 存为 epoch 毫秒 `BIGINT`，避免不同数据库 timestamp 类型的差异。
 - 时间在写入前截断到毫秒，保证 API 响应与数据库值一致。

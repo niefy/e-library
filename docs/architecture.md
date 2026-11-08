@@ -18,7 +18,7 @@
 - 身份认证与授权：JWT Bearer、`USER`/`ADMIN` 角色、方法级授权、所有权检查。
 - 统一错误契约：RFC 7807 ProblemDetail、稳定错误码、traceId。
 - 读路径优化：书目详情/搜索使用注解式本地缓存，借还后自动失效。
-- 本地一键启动：API、H5 客户端、SQLite 持久卷。
+- 本地一键启动：API、H5 客户端、PostgreSQL 16 与持久卷。
 - 生产拓扑说明：PG、OIDC、多实例、健康探针、优雅停机。
 
 ### 1.3 范围外
@@ -35,7 +35,7 @@
 | A4 | `Book.totalCopies` 是当前总副本数；本项目不调整库存，不区分馆藏位置。 |
 | A5 | “可借”是派生值：`totalCopies - count(ACTIVE loans)`，不在 `book` 表冗余存储。 |
 | A6 | 一个用户对一本书最多一个 `ACTIVE` 借阅；归还后可以再次借同一本书。 |
-| A7 | 本地开发允许 SQLite；生产必须使用 PostgreSQL。 |
+| A7 | 本地开发、集成测试与生产均使用 PostgreSQL；本地通过 Compose 容器提供，生产使用托管集群。 |
 | A8 | 所有业务端点都要求登录，包括书目浏览；不做匿名访问。 |
 | A9 | 分页使用偏移分页；`page >= 0`，`1 <= size <= 50`。 |
 | A10 | 采用模块化单体，不引入微服务、服务发现、配置中心、Kafka、Redis 或分布式锁。 |
@@ -45,13 +45,13 @@
 | 质量属性 | 目标 | 实现方式 | 代价/权衡 |
 | --- | --- | --- | --- |
 | 一致性 | 绝不超借；同一用户同一书最多一个活跃借阅 | 数据库事务 + Book 行悲观锁 + 活跃计数 + 部分唯一索引 + 容量触发器 | 热门书上的借阅会串行化；吞吐上限由单行锁决定 |
-| 可用性 | 应用无状态，可水平扩展；单实例故障不影响整体 | JWT、无 HTTP Session、外部化配置、readiness/liveness、优雅停机 | SQLite 本地模式不具备多实例高可用，仅用于演示 |
+| 可用性 | 应用无状态，可水平扩展；单实例故障不影响整体 | JWT、无 HTTP Session、外部化配置、readiness/liveness、优雅停机 | 数据库是唯一有状态组件；生产高可用依赖托管 PostgreSQL 的多可用区部署 |
 | 性能 | 常规查询毫秒级；借阅事务短小 | 索引 `(book_id,status)`、`(user_id,status)`、`(user_id,borrowed_at DESC)`；批量读取活跃计数与书名；书目详情/搜索使用 Caffeine 注解缓存 | 搜索使用 `locate`，不适合超大目录；偏移分页深页变慢；本地缓存跨实例有 TTL 内的短暂陈旧 |
 | 安全 | 身份只来自令牌；最小权限；不泄露内部细节 | OAuth2 resource server、方法级授权、所有权检查、DTO、ProblemDetail、CORS 白名单 | 本地 dev token 是刻意保留的攻击面，生产禁用 |
 | 可维护性 | 领域逻辑可独立测试，适配器可替换 | web → application → domain；Repository 端口在 domain；DTO 与实体分离 | 领域对象带最小 JPA 注解，不是“纯净”的六边形模型 |
 | 可观测性 | 每个请求可关联，健康状态可探测 | traceId 贯穿 API/日志/错误响应；Actuator 探针；关键业务日志 | 未内置 Prometheus/OpenTelemetry 后端 |
 | 可测试性 | 核心逻辑不 mock；并发可重复验证 | 领域单测 + PostgreSQL Testcontainers 集成测试 + 真实并发请求 | 集成测试依赖 Docker，启动比纯单测慢 |
-| 简单性 | 5 分钟可跑，组件数量最少 | 模块化单体、SQLite 本地、nginx 直接代理 API | 放弃了部分“看起来更云原生”的基础设施 |
+| 简单性 | 5 分钟可跑，组件数量最少 | 模块化单体、PostgreSQL 容器、nginx 直接代理 API | 放弃了部分“看起来更云原生”的基础设施 |
 
 ## 3. 系统上下文
 
@@ -68,7 +68,7 @@ flowchart LR
     Browser -->|HTTPS :8088| Web[library-web<br/>nginx + 静态页面]
     Web -->|"/api/v1/*" :8080| API[library-api<br/>e-library-service]
 
-    API -->|JDBC| DB[(SQLite 本地<br/>PostgreSQL 生产)]
+    API -->|JDBC| DB[(PostgreSQL<br/>本地容器 / 生产托管)]
     API -.->|"issuer/JWKS 校验"| IdP
 ```
 
@@ -78,10 +78,10 @@ flowchart LR
 flowchart LR
     B[Browser] -->|localhost:8088| W[web nginx]
     W -->|"/api/*"| A[api :8080]
-    A -->|"/app/data/library.db"| V[(Docker volume<br/>SQLite WAL)]
+    A -->|JDBC :5432| P[(postgres:16-alpine<br/>Docker volume)]
 ```
 
-Compose 启动顺序由健康检查控制：`api` 就绪后启动 `web`。浏览器只访问 8088，属于同源请求；但 API 仍按 `Origin` 白名单校验 nginx 转发流量，因此实际访问地址（包括局域网 IP）必须列入 CORS 白名单。API 也暴露到宿主机 8080，便于 curl 与 Swagger 调试。
+Compose 启动顺序由健康检查控制：`postgres` 就绪后启动 `api`，`api` 就绪后启动 `web`。浏览器只访问 8088，属于同源请求；但 API 仍按 `Origin` 白名单校验 nginx 转发流量，因此实际访问地址（包括局域网 IP）必须列入 CORS 白名单。API 暴露到宿主机 8080，便于 curl 与 Swagger 调试；PostgreSQL 暴露 5432，便于宿主机上的 IDE 或本地应用连接。
 
 ### 3.3 生产部署拓扑
 

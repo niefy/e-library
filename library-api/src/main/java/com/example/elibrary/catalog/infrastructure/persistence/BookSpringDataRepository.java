@@ -18,8 +18,7 @@ public interface BookSpringDataRepository extends JpaRepository<Book, UUID> {
     Optional<Book> findByIdForUpdate(@Param("id") UUID id);
 
     /**
-     * locate() treats the query literally (unlike LIKE with user-supplied wildcards) and is
-     * translated to the right SQL function for SQLite and PostgreSQL.
+     * locate() treats the query literally, unlike LIKE with user-supplied wildcards.
      */
     @Query("""
             select b from Book b

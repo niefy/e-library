@@ -44,7 +44,7 @@ public class LoanService {
      * Borrowing locks the Book row first. All borrow requests for one book therefore serialize on
      * that row, and the active-loan count read afterwards is stable for the rest of the
      * transaction. A partial unique index additionally guarantees one active loan per user/book
-     * even if the lock is unavailable (SQLite) or bypassed.
+     * even if the row lock is bypassed.
      */
     @Transactional
     public LoanView borrow(UUID bookId, Actor actor) {

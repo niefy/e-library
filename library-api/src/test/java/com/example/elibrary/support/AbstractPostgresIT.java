@@ -29,9 +29,9 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Integration tests run against a real PostgreSQL instance because SQLite cannot exercise row
- * locking or multi-connection concurrency. The container is started once per test JVM and the
- * schema is created by the same Flyway migrations used in production.
+ * Integration tests run against a real PostgreSQL instance so row locking and multi-connection
+ * concurrency are exercised exactly as in development and production. The container is started
+ * once per test JVM and the schema is created by the same Flyway migrations.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")

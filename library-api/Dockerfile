@@ -22,14 +22,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app \
-    && mkdir -p /app/data \
+    && mkdir -p /app \
     && chown -R app:app /app
 
 WORKDIR /app
 COPY --from=build /workspace/library-api/target/e-library-service-1.0.0.jar /app/app.jar
 
-ENV ELIBRARY_DB_PATH=/app/data/library.db \
-    JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
 
 USER app
 EXPOSE 8080
