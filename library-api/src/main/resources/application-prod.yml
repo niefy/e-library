@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    locations: "classpath:db/migration/common,classpath:db/migration/postgresql"
+
+elibrary:
+  security:
+    mode: ${ELIBRARY_SECURITY_MODE:issuer}
+    issuer-uri: ${ELIBRARY_JWT_ISSUER_URI}
+    cors-allowed-origins: ${ELIBRARY_CORS_ALLOWED_ORIGINS:https://library.example.com}

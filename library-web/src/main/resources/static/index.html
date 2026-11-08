@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>E-Library · 数字图书馆</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="app-header">
+    <div class="brand">
+        <span class="brand-mark">EL</span>
+        <span>E-Library <small>数字图书馆</small></span>
+    </div>
+    <div id="session" class="session hidden">
+        <span class="session-user" id="session-user"></span>
+        <button type="button" class="button ghost" id="logout">退出</button>
+    </div>
+</header>
+
+<main class="page">
+    <section id="login-panel" class="card login-card">
+        <h1>登录</h1>
+        <p class="muted">
+            本地演示使用开发令牌端点。生产环境应替换为 OIDC 登录页，令牌仍只由后端校验。
+        </p>
+        <form id="login-form" class="form">
+            <label class="field">
+                <span>用户 ID</span>
+                <input id="login-user" name="userId" value="alice" autocomplete="username"
+                       maxlength="64" required>
+            </label>
+            <label class="field">
+                <span>角色</span>
+                <select id="login-role" name="role">
+                    <option value="USER">USER</option>
+                    <option value="ADMIN">ADMIN</option>
+                </select>
+            </label>
+            <button type="submit" class="button primary">获取令牌并登录</button>
+        </form>
+        <div class="demo-logins">
+            <span class="muted">快速体验：</span>
+            <button type="button" class="button subtle" data-demo-user="alice" data-demo-role="USER">alice · USER</button>
+            <button type="button" class="button subtle" data-demo-user="bob" data-demo-role="USER">bob · USER</button>
+            <button type="button" class="button subtle" data-demo-user="admin" data-demo-role="ADMIN">admin · ADMIN</button>
+        </div>
+    </section>
+
+    <section id="app-panel" class="hidden">
+        <nav class="tabs" aria-label="主导航">
+            <button type="button" class="tab active" data-tab="catalog">书目</button>
+            <button type="button" class="tab" data-tab="loans">我的借阅</button>
+        </nav>
+
+        <section id="catalog-tab" aria-label="书目">
+            <form id="search-form" class="search-row">
+                <input id="search-input" type="search" placeholder="搜索书名、作者或 ISBN"
+                       aria-label="搜索书名、作者或 ISBN" maxlength="100">
+                <button type="submit" class="button primary">搜索</button>
+            </form>
+            <div id="book-list" class="book-grid" aria-live="polite"></div>
+            <div class="pager">
+                <button type="button" class="button ghost" id="books-prev">上一页</button>
+                <span class="pager-status" id="books-page">第 1 / 1 页</span>
+                <button type="button" class="button ghost" id="books-next">下一页</button>
+            </div>
+        </section>
+
+        <section id="loans-tab" class="hidden" aria-label="我的借阅">
+            <div class="toolbar">
+                <label class="field inline">
+                    <span>状态</span>
+                    <select id="loan-status">
+                        <option value="ACTIVE">借阅中</option>
+                        <option value="RETURNED">已归还</option>
+                        <option value="">全部</option>
+                    </select>
+                </label>
+                <button type="button" class="button ghost" id="refresh-loans">刷新</button>
+            </div>
+            <div id="loan-list" class="loan-list" aria-live="polite"></div>
+            <div class="pager">
+                <button type="button" class="button ghost" id="loans-prev">上一页</button>
+                <span class="pager-status" id="loans-page">第 1 / 1 页</span>
+                <button type="button" class="button ghost" id="loans-next">下一页</button>
+            </div>
+        </section>
+    </section>
+</main>
+
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+<script src="/app.js" defer></script>
+</body>
+</html>

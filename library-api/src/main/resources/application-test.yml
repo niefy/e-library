@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    locations: "classpath:db/migration/common,classpath:db/migration/postgresql"
+
+elibrary:
+  security:
+    mode: hmac
+    jwt-secret: test-only-hmac-secret-that-is-long-enough-32
+    issuer: elibrary-test
+    cors-allowed-origins: http://localhost:8088,http://127.0.0.1:8088,http://192.168.68.108:8088
+
+logging:
+  level:
+    org.hibernate.SQL: WARN
