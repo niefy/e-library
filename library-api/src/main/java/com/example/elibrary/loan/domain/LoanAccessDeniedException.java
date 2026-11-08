@@ -1,7 +1,7 @@
 package com.example.elibrary.loan.domain;
 
-import com.example.elibrary.shared.error.DomainException;
-import com.example.elibrary.shared.error.ErrorCode;
+import com.example.elibrary.common.error.DomainException;
+import com.example.elibrary.common.error.ErrorCode;
 
 public class LoanAccessDeniedException extends DomainException {
 

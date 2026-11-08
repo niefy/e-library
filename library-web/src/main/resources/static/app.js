@@ -72,7 +72,7 @@ async function api(path, options = {}) {
             body: options.body === undefined ? undefined : JSON.stringify(options.body)
         });
     } catch (networkError) {
-        throw new Error("无法连接服务，请确认网关已启动");
+        throw new Error("无法连接服务，请确认后端已启动");
     }
 
     let payload = null;

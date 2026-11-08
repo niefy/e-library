@@ -1,6 +1,6 @@
 # The H5 client is plain static HTML/CSS/JS; no JavaScript build step is
-# required. nginx serves the files and proxies /api to the gateway so the
-# browser sees a single origin (no CORS in the local topology).
+# required. nginx serves the files and proxies /api directly to the API so
+# the browser sees a single origin in the local topology.
 FROM nginx:1.27-alpine
 
 COPY library-web/nginx.conf /etc/nginx/conf.d/default.conf

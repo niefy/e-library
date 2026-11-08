@@ -1,14 +1,14 @@
 package com.example.elibrary.loan.adapter.in.web;
 
-import com.example.elibrary.identity.Actor;
-import com.example.elibrary.identity.security.CurrentUser;
+import com.example.elibrary.common.paging.PageQuery;
+import com.example.elibrary.common.paging.PageResponse;
+import com.example.elibrary.common.paging.PageResult;
+import com.example.elibrary.common.security.Actor;
+import com.example.elibrary.common.security.CurrentUser;
 import com.example.elibrary.loan.application.LoanQueryService;
 import com.example.elibrary.loan.application.LoanService;
 import com.example.elibrary.loan.application.LoanView;
 import com.example.elibrary.loan.domain.LoanStatus;
-import com.example.elibrary.shared.api.PageResponse;
-import com.example.elibrary.shared.paging.PageQuery;
-import com.example.elibrary.shared.paging.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

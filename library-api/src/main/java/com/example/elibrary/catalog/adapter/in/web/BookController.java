@@ -2,9 +2,9 @@ package com.example.elibrary.catalog.adapter.in.web;
 
 import com.example.elibrary.catalog.application.BookQueryService;
 import com.example.elibrary.catalog.application.BookView;
-import com.example.elibrary.shared.api.PageResponse;
-import com.example.elibrary.shared.paging.PageQuery;
-import com.example.elibrary.shared.paging.PageResult;
+import com.example.elibrary.common.paging.PageQuery;
+import com.example.elibrary.common.paging.PageResponse;
+import com.example.elibrary.common.paging.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;

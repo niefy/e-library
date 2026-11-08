@@ -72,6 +72,10 @@ springdoc:
     operations-sorter: method
 
 elibrary:
+  cache:
+    ttl: ${ELIBRARY_CACHE_TTL:30s}
+    maximum-size: ${ELIBRARY_CACHE_MAX_SIZE:10000}
+    record-stats: ${ELIBRARY_CACHE_RECORD_STATS:true}
   security:
     mode: ${ELIBRARY_SECURITY_MODE:hmac}
     jwt-secret: ${ELIBRARY_JWT_SECRET:dev-only-hmac-secret-change-me-please-32-bytes}

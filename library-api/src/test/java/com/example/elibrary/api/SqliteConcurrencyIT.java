@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.elibrary.catalog.domain.Book;
 import com.example.elibrary.catalog.domain.BookRepository;
-import com.example.elibrary.identity.security.JwtTokenIssuer;
+import com.example.elibrary.common.security.JwtTokenIssuer;
 import com.example.elibrary.loan.domain.LoanRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

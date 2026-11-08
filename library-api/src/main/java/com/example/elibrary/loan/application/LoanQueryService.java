@@ -2,14 +2,14 @@ package com.example.elibrary.loan.application;
 
 import com.example.elibrary.catalog.domain.Book;
 import com.example.elibrary.catalog.domain.BookRepository;
-import com.example.elibrary.identity.Actor;
+import com.example.elibrary.common.paging.PageQuery;
+import com.example.elibrary.common.paging.PageResult;
+import com.example.elibrary.common.security.Actor;
 import com.example.elibrary.loan.domain.Loan;
 import com.example.elibrary.loan.domain.LoanAccessDeniedException;
 import com.example.elibrary.loan.domain.LoanNotFoundException;
 import com.example.elibrary.loan.domain.LoanRepository;
 import com.example.elibrary.loan.domain.LoanStatus;
-import com.example.elibrary.shared.paging.PageQuery;
-import com.example.elibrary.shared.paging.PageResult;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

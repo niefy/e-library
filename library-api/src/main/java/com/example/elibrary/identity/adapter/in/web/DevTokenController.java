@@ -1,7 +1,7 @@
 package com.example.elibrary.identity.adapter.in.web;
 
-import com.example.elibrary.identity.Role;
-import com.example.elibrary.identity.security.JwtTokenIssuer;
+import com.example.elibrary.common.security.Role;
+import com.example.elibrary.common.security.JwtTokenIssuer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

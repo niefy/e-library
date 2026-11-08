@@ -2,7 +2,7 @@ package com.example.elibrary.support;
 
 import com.example.elibrary.catalog.domain.Book;
 import com.example.elibrary.catalog.domain.BookRepository;
-import com.example.elibrary.identity.security.JwtTokenIssuer;
+import com.example.elibrary.common.security.JwtTokenIssuer;
 import com.example.elibrary.loan.domain.LoanRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -72,9 +74,18 @@ public abstract class AbstractPostgresIT {
     @Autowired
     protected JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    protected CacheManager cacheManager;
+
     @BeforeEach
     void cleanDatabase() {
         jdbcTemplate.execute("TRUNCATE TABLE loan, book CASCADE");
+        for (String cacheName : cacheManager.getCacheNames()) {
+            Cache cache = cacheManager.getCache(cacheName);
+            if (cache != null) {
+                cache.clear();
+            }
+        }
     }
 
     protected Book createBook(String title, int totalCopies) {

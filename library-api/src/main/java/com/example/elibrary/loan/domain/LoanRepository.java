@@ -1,7 +1,7 @@
 package com.example.elibrary.loan.domain;
 
-import com.example.elibrary.shared.paging.PageQuery;
-import com.example.elibrary.shared.paging.PageResult;
+import com.example.elibrary.common.paging.PageQuery;
+import com.example.elibrary.common.paging.PageResult;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;

@@ -2,8 +2,8 @@ package com.example.elibrary.catalog.infrastructure.persistence;
 
 import com.example.elibrary.catalog.domain.Book;
 import com.example.elibrary.catalog.domain.BookRepository;
-import com.example.elibrary.shared.paging.PageQuery;
-import com.example.elibrary.shared.paging.PageResult;
+import com.example.elibrary.common.paging.PageQuery;
+import com.example.elibrary.common.paging.PageResult;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;

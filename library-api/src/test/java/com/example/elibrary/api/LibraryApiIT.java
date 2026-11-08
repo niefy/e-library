@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -233,6 +234,39 @@ class LibraryApiIT extends AbstractPostgresIT {
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(response.headers().firstValue("Access-Control-Allow-Origin")).contains(origin);
         }
+    }
+
+    @Test
+    void cachedBookQueriesAreInvalidatedAfterBorrowAndReturn() {
+        assertThat(cacheManager).isInstanceOf(CaffeineCacheManager.class);
+
+        Book book = createBook("Cache Invalidation", 2);
+        String token = userToken("alice");
+
+        JsonNode detailBefore = json(get("/api/v1/books/" + book.getId(), token));
+        JsonNode searchBefore =
+                json(get("/api/v1/books?q=Invalidation&page=0&size=10", token));
+        assertThat(detailBefore.path("availableCopies").asInt()).isEqualTo(2);
+        assertThat(searchBefore.path("items").get(0).path("availableCopies").asInt())
+                .isEqualTo(2);
+
+        String loanId = borrow(token, book.getId());
+
+        JsonNode detailAfterBorrow = json(get("/api/v1/books/" + book.getId(), token));
+        JsonNode searchAfterBorrow =
+                json(get("/api/v1/books?q=Invalidation&page=0&size=10", token));
+        assertThat(detailAfterBorrow.path("availableCopies").asInt()).isEqualTo(1);
+        assertThat(searchAfterBorrow.path("items").get(0).path("availableCopies").asInt())
+                .isEqualTo(1);
+
+        post("/api/v1/loans/" + loanId + "/return", token);
+
+        JsonNode detailAfterReturn = json(get("/api/v1/books/" + book.getId(), token));
+        JsonNode searchAfterReturn =
+                json(get("/api/v1/books?q=Invalidation&page=0&size=10", token));
+        assertThat(detailAfterReturn.path("availableCopies").asInt()).isEqualTo(2);
+        assertThat(searchAfterReturn.path("items").get(0).path("availableCopies").asInt())
+                .isEqualTo(2);
     }
 
     @Test

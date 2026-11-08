@@ -5,11 +5,14 @@ FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 
 COPY pom.xml .
+COPY library-common/pom.xml library-common/pom.xml
+COPY library-common/src library-common/src
 COPY library-api/pom.xml library-api/pom.xml
 COPY library-api/src library-api/src
+COPY library-web/pom.xml library-web/pom.xml
 
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -B -ntp -f library-api/pom.xml -Dmaven.test.skip=true package
+    mvn -B -ntp -pl library-api -am -Dmaven.test.skip=true package
 
 # ---- Runtime stage ---------------------------------------------------------
 FROM eclipse-temurin:21-jre-jammy

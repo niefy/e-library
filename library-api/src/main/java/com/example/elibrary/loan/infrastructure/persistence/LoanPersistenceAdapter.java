@@ -1,12 +1,12 @@
 package com.example.elibrary.loan.infrastructure.persistence;
 
+import com.example.elibrary.common.paging.PageQuery;
+import com.example.elibrary.common.paging.PageResult;
 import com.example.elibrary.loan.domain.BookNotAvailableException;
 import com.example.elibrary.loan.domain.Loan;
 import com.example.elibrary.loan.domain.LoanAlreadyActiveException;
 import com.example.elibrary.loan.domain.LoanRepository;
 import com.example.elibrary.loan.domain.LoanStatus;
-import com.example.elibrary.shared.paging.PageQuery;
-import com.example.elibrary.shared.paging.PageResult;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;

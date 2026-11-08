@@ -1,9 +1,10 @@
 package com.example.elibrary.loan.application;
 
+import com.example.elibrary.catalog.application.BookAvailabilityChangedEvent;
 import com.example.elibrary.catalog.domain.Book;
 import com.example.elibrary.catalog.domain.BookNotFoundException;
 import com.example.elibrary.catalog.domain.BookRepository;
-import com.example.elibrary.identity.Actor;
+import com.example.elibrary.common.security.Actor;
 import com.example.elibrary.loan.domain.BookNotAvailableException;
 import com.example.elibrary.loan.domain.Loan;
 import com.example.elibrary.loan.domain.LoanAccessDeniedException;
@@ -14,6 +15,7 @@ import java.time.Clock;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,12 +26,17 @@ public class LoanService {
 
     private final BookRepository bookRepository;
     private final LoanRepository loanRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     public LoanService(
-            BookRepository bookRepository, LoanRepository loanRepository, Clock clock) {
+            BookRepository bookRepository,
+            LoanRepository loanRepository,
+            ApplicationEventPublisher eventPublisher,
+            Clock clock) {
         this.bookRepository = bookRepository;
         this.loanRepository = loanRepository;
+        this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
 
@@ -65,6 +72,7 @@ public class LoanService {
                 bookId,
                 actor.userId(),
                 loan.getDueAt());
+        eventPublisher.publishEvent(new BookAvailabilityChangedEvent(bookId));
         return LoanView.of(loan, book.getTitle());
     }
 
@@ -89,6 +97,7 @@ public class LoanService {
         Book book = bookRepository
                 .findById(loan.getBookId())
                 .orElseThrow(() -> new BookNotFoundException(loan.getBookId()));
+        eventPublisher.publishEvent(new BookAvailabilityChangedEvent(loan.getBookId()));
         return LoanView.of(loan, book.getTitle());
     }
 }
